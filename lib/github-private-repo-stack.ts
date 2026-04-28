@@ -16,7 +16,13 @@ export class HereyaGithubPrivateRepoStack extends cdk.Stack {
 
     const appId = required('hereyaGithubAppId');
     const installationId = required('hereyaGithubAppInstallationId');
-    const privateKey = required('hereyaGithubAppPrivateKey');
+    // Plaintext ARN of an externally-managed Secrets Manager secret holding the
+    // GitHub App PEM. Using the ARN (instead of the resolved PEM) keeps the
+    // private key out of the synthesised CloudFormation template.
+    const privateKeySecretArn = required('hereyaGithubAppPrivateKeyArn');
+    if (!privateKeySecretArn.startsWith('arn:aws:secretsmanager:')) {
+      throw new Error(`hereyaGithubAppPrivateKeyArn must be a Secrets Manager ARN, got "${privateKeySecretArn}"`);
+    }
 
     const sourceTemplate = required('sourceTemplate');
     const targetRepo = process.env['targetRepo'] || projectName;
@@ -31,11 +37,11 @@ export class HereyaGithubPrivateRepoStack extends cdk.Stack {
 
     const safeName = projectName.replaceAll('/', '-');
 
-    const privateKeySecret = new secretsmanager.Secret(this, 'GhAppPrivateKey', {
-      secretName: `${safeName}/hereya-gh-app-private-key`,
-      description: `GitHub App private key for ${projectName}`,
-      secretStringValue: cdk.SecretValue.unsafePlainText(privateKey),
-    });
+    const privateKeySecret = secretsmanager.Secret.fromSecretCompleteArn(
+      this,
+      'GhAppPrivateKey',
+      privateKeySecretArn,
+    );
 
     const handler = new NodejsFunction(this, 'GithubHandler', {
       entry: path.join(__dirname, 'github-handler', 'index.ts'),

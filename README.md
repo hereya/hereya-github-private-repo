@@ -16,7 +16,8 @@ Read from `process.env` at provision time. Workspace-level values are set once v
 | `targetRepo` | parameter | no (default `projectName`) | Target private repo, in `org/name` form. |
 | `hereyaGithubAppId` | workspace env | yes | GitHub App ID. |
 | `hereyaGithubAppInstallationId` | workspace env | yes | Installation ID of the App on the target org/user. |
-| `hereyaGithubAppPrivateKey` | workspace env | yes | App private key (PEM). Stored sensitive in AWS Secrets Manager via `hereya env add --sensitive`. |
+| `hereyaGithubAppPrivateKeyArn` | workspace env | yes | Plaintext ARN of an AWS Secrets Manager secret containing the App private key (PEM). The ARN is referenced (not embedded) so the PEM never lands in the CloudFormation template. |
+| `hereyaGithubAppPrivateKey` | workspace env | yes (for credential helper) | Same PEM, stored as `aws:<arn>` for `hereya env add --sensitive`. The hereya-cli credential helper resolves this on the user's machine to mint installation tokens for `git pull`/`push`. The CDK package itself does NOT use this var. |
 | `deployWorkspace` | parameter | no | Substituted for `{{deployWorkspace}}` in `CLAUDE.md` of the new repo. |
 | `hereyaVarsJson` | parameter | no | JSON object mapping `hereyaconfig/hereyavars/<filename>` to the YAML body to write. |
 
@@ -41,12 +42,28 @@ You need a GitHub App installed on the target org/user. The App is workspace-sco
    - Subscribe to no events.
 2. Install the App on the same org/user. After install, note the **Installation ID** (visible in the install URL: `https://github.com/.../installations/<id>`).
 3. Generate and download the App's private key (`.pem`).
-4. From inside the workspace where you intend to run `hereya init`, set the workspace env:
+4. Store the PEM in AWS Secrets Manager directly (so the package can reference it by ARN, keeping the PEM out of every synthesised CloudFormation template):
+
+   ```bash
+   ARN=$(aws secretsmanager create-secret \
+     --name hereya/github-app/private-key \
+     --secret-string "$(cat private-key.pem)" \
+     --query ARN --output text)
+   echo "$ARN"
+   ```
+
+5. From inside the workspace where you intend to run `hereya init`, set the workspace env:
 
    ```bash
    hereya env add hereyaGithubAppId <appId>
    hereya env add hereyaGithubAppInstallationId <installationId>
-   hereya env add --sensitive hereyaGithubAppPrivateKey "$(cat private-key.pem)"
+
+   # Plaintext ARN, used by the CDK package
+   hereya env add hereyaGithubAppPrivateKeyArn "$ARN"
+
+   # Same secret, registered for hereya's resolver so the credential helper can
+   # decrypt the PEM locally to mint installation tokens for git pull/push.
+   hereya env add hereyaGithubAppPrivateKey "aws:$ARN"
    ```
 
 These are workspace-level — every `hereya init` against `hereya/github-private-repo` in this workspace re-uses them.
