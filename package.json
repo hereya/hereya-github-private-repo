@@ -1,6 +1,6 @@
 {
   "name": "hereya-github-private-repo",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "bin": {
     "hereya-github-private-repo": "bin/app.js"
   },

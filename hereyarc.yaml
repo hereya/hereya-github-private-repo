@@ -1,5 +1,5 @@
 name: hereya/github-private-repo
-version: 0.1.1
+version: 0.1.2
 description: "Create a private GitHub repo from a public GitHub Template repo, authenticated by a workspace-level GitHub App. Outputs hereyaGit* values consumed by hereya clone."
 iac: cdk
 infra: aws

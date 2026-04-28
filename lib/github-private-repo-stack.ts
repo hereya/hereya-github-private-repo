@@ -43,7 +43,9 @@ export class HereyaGithubPrivateRepoStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.minutes(2),
       bundling: {
-        nodeModules: ['@octokit/core', '@octokit/auth-app'],
+        // octokit packages are ESM-only; esbuild bundles them inline and
+        // converts to CJS so the lambda can require() them at runtime.
+        mainFields: ['module', 'main'],
       },
       environment: {
         GH_APP_ID: appId,
